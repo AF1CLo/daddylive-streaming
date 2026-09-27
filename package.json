@@ -4,7 +4,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc && mkdir -p dist/web && cp src/web/style.css dist/web/",
     "typecheck": "tsc --noEmit",
-    "start": "sh -c 'lsof -ti:${PORT:-3000} | xargs kill -9 2>/dev/null; npm run build && node dist/api/index.js'"
+    "start": "node dist/index.js"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
