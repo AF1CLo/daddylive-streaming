@@ -32,15 +32,29 @@ function send(
   res.end(buf);
 }
 
+function requestOrigin(req: { headers: Record<string, string | string[] | undefined> }): string {
+  const rawProto = req.headers["x-forwarded-proto"];
+  const proto =
+    (typeof rawProto === "string" ? rawProto.split(",")[0].trim() : null) || "https";
+  const host =
+    (typeof req.headers["x-forwarded-host"] === "string"
+      ? req.headers["x-forwarded-host"].split(",")[0].trim()
+      : null) ||
+    (typeof req.headers.host === "string" ? req.headers.host : null) ||
+    "localhost";
+  return `${proto}://${host}`;
+}
+
 const server = createServer(async (req, res) => {
   try {
     if (req.method !== "GET") {
       send(res, 405, "method not allowed", "text/plain");
       return;
     }
-    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+    const origin = requestOrigin(req);
+    const url = new URL(req.url ?? "/", origin);
     if (url.pathname === "/api/proxy") {
-      const result = await proxyStream(url.searchParams, url.origin);
+      const result = await proxyStream(url.searchParams, origin);
       send(res, result.status, result.body, result.type, result.headers);
       return;
     }
@@ -62,7 +76,7 @@ const server = createServer(async (req, res) => {
         res,
         channelId,
         serverParam as ServerKind,
-        url.origin,
+        origin,
         url.searchParams.get("u"),
         Number.isFinite(variant as number) ? (variant as number) : null,
       );
@@ -79,7 +93,7 @@ const server = createServer(async (req, res) => {
         send(res, 400, "server required", "text/plain");
         return;
       }
-      await handleResolveOne(res, channelId, serverParam as ServerKind, url.origin);
+      await handleResolveOne(res, channelId, serverParam as ServerKind, origin);
       return;
     }
     const asset = staticFiles[url.pathname];
