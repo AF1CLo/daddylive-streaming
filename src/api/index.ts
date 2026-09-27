@@ -32,7 +32,7 @@ function send(
   res.end(buf);
 }
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   try {
     if (req.method !== "GET") {
       send(res, 405, "method not allowed", "text/plain");
@@ -96,6 +96,20 @@ createServer(async (req, res) => {
     const message = err instanceof Error ? err.message : "error";
     send(res, 500, message, "text/plain");
   }
-}).listen(PORT, () => {
+});
+
+server.on("error", (err) => {
+  process.stderr.write(`SERVER ERROR: ${err.message}\n`);
+});
+
+server.listen(PORT, "0.0.0.0", () => {
   process.stdout.write(`listening on http://localhost:${PORT}\n`);
+});
+
+process.on("unhandledRejection", (reason) => {
+  process.stderr.write(`Unhandled Rejection: ${reason}\n`);
+});
+
+process.on("uncaughtException", (error) => {
+  process.stderr.write(`Uncaught Exception: ${error.message}\n`);
 });
