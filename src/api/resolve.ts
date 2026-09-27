@@ -14,6 +14,10 @@ import { livePlaylistUrl, putResolvedSession, streamReferer } from "../proxy/ses
 import { playerLabel, serverProfile, type ServerKind } from "../servers/index.js";
 import { fetchEmbedHtmlChain } from "./fetch.js";
 
+// --- SISTEMA DE CACHÉ EN MEMORIA ---
+const resolveCache = new Map<string, { stream: ResolvedStream; timestamp: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos de duración por cada canal
+
 function channelTitle(channelId: number): string {
   return `Channel ${channelId}`;
 }
@@ -92,8 +96,25 @@ export async function resolveLive(
   channelId: number,
   server: ServerKind,
 ): Promise<ResolvedStream> {
+  const cacheKey = `${channelId}-${server}`;
+  const now = Date.now();
+
+  // Si ya tenemos el enlace guardado en RAM y no han pasado 5 minutos, lo devolvemos al instante
+  if (resolveCache.has(cacheKey)) {
+    const cached = resolveCache.get(cacheKey)!;
+    if (now - cached.timestamp < CACHE_TTL_MS) {
+      return cached.stream;
+    }
+  }
+
+  // Si no está en caché o caducó, realizamos el proceso habitual de carga y descifrado
   const { html, embedUrl } = await loadEmbedHtml(channelId, server);
-  return resolveFromHtml(html, { channelId, server, embedUrl });
+  const resolved = resolveFromHtml(html, { channelId, server, embedUrl });
+
+  // Guardamos el nuevo resultado en la caché antes de entregarlo
+  resolveCache.set(cacheKey, { stream: resolved, timestamp: now });
+
+  return resolved;
 }
 
 export async function handleResolveOne(
